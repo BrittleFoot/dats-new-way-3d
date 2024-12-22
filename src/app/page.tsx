@@ -1,3 +1,5 @@
-export default function Home() {
-  return <div className="">Hello, World!</div>;
+import { Home } from '@/components/home'
+
+export default function HomePage() {
+    return <Home />
 }
