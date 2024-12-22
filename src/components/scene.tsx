@@ -1,14 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client'
 
-import {
-    CameraControls,
-    KeyboardControls,
-    useKeyboardControls,
-} from '@react-three/drei'
-import { Canvas, ThreeElements, useFrame, useThree } from '@react-three/fiber'
+import { CameraControls } from '@react-three/drei'
+import { Canvas, ThreeElements, useFrame } from '@react-three/fiber'
 import { useRef, useState } from 'react'
 import * as THREE from 'three'
+import { KeyControlsHandler, KeyControlsProvider } from './key'
 
 function Box(props: ThreeElements['mesh']) {
     const meshRef = useRef<THREE.Mesh>(null!)
@@ -39,43 +36,6 @@ function Box(props: ThreeElements['mesh']) {
             <meshStandardMaterial color={hovered ? 'hotpink' : '#2f74c0'} />
         </mesh>
     )
-}
-function KeyControlsProvider({ children }: { children: React.ReactNode }) {
-    return (
-        <KeyboardControls
-            map={[
-                { name: 'forward', keys: ['ArrowUp', 'w', 'W', 'ц', 'Ц'] },
-                { name: 'backward', keys: ['ArrowDown', 's', 'S', 'ы', 'Ы'] },
-                { name: 'left', keys: ['ArrowLeft', 'a', 'A', 'ф', 'Ф'] },
-                { name: 'right', keys: ['ArrowRight', 'd', 'D', 'в', 'В'] },
-                { name: 'jump', keys: ['Space'] },
-                { name: 'crouch', keys: ['ShiftLeft', 'ShiftRight'] },
-            ]}
-        >
-            {children}
-        </KeyboardControls>
-    )
-}
-
-function KeyControlsHandler() {
-    const controls = useThree((state) => state.controls) as CameraControls
-    const [_, get] = useKeyboardControls()
-
-    const SPEED = 0.1
-
-    useFrame((_, delta) => {
-        const { forward, backward, left, right, jump, crouch } = get()
-
-        if (forward) controls.forward(SPEED)
-        if (backward) controls.forward(-SPEED)
-        if (jump) controls.elevate(SPEED)
-        if (crouch) controls.elevate(-SPEED)
-
-        // if (left) controls.moveRight(-SPEED)
-        // if (right) controls.moveRight(SPEED)
-    })
-
-    return <></>
 }
 
 export function Scene() {
