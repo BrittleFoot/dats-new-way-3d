@@ -1,3 +1,14 @@
 {
-    "extends": ["next/core-web-vitals", "next/typescript"]
+    "extends": ["next/core-web-vitals", "next/typescript"],
+    "rules": {
+        "no-unused-vars": "off"
+    },
+    "overrides": [
+        {
+            "files": ["*.ts", "*.tsx"],
+            "rules": {
+                "no-unused-vars": "off"
+            }
+        }
+    ]
 }
