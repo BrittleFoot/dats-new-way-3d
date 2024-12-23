@@ -1,3 +1,4 @@
+import { ReactQueryProvider } from '@/components/query'
 import type { Metadata } from 'next'
 import './globals.css'
 
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en" style={{ colorScheme: 'dark' }} className="dark">
-            <body className="antialiased h-[100vh]">{children}</body>
+            <ReactQueryProvider>
+                <body className="antialiased h-[100vh]">{children}</body>
+            </ReactQueryProvider>
         </html>
     )
 }
