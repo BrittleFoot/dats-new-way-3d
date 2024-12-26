@@ -1,17 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client'
 
-import { replay } from '@/actions/replay'
 import { Food, Point } from '@/lib/type'
-import { CameraControls } from '@react-three/drei'
+import { CameraControls, Sky } from '@react-three/drei'
 import { Canvas, ThreeElements, useFrame } from '@react-three/fiber'
-import { useInfiniteQuery } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { Color, Mesh } from 'three'
 import { KeyControlsHandler, KeyControlsProvider } from './key'
-import { useWorld, WorldProvider } from './ui/world'
+import { useWorld } from './ui/world'
 
-function Template({ color, props }: ThreeElements['mesh'] & { color?: Color }) {
+function Template({
+    color,
+    ...props
+}: ThreeElements['mesh'] & { color?: Color }) {
     const meshRef = useRef<Mesh>(null!)
     const [hovered, setHover] = useState(false)
     const [active, setActive] = useState(false)
@@ -93,7 +94,7 @@ function Orange({ food }: { food: Food }) {
     )
 }
 
-function Food() {
+function Oranges() {
     const { food } = useWorld()
 
     return (
@@ -134,31 +135,12 @@ export function World() {
     return (
         <>
             <Snakes />
-            <Food />
+            <Oranges />
         </>
     )
 }
 
 export function Scene() {
-    const [maxPages, setMaxPages] = useState(0)
-
-    const query = useInfiniteQuery({
-        queryKey: ['scene'],
-        queryFn: async ({ pageParam }) => {
-            const data = await replay(pageParam)
-            setMaxPages(data.framesCount)
-            return data
-        },
-        initialPageParam: 0,
-        maxPages: maxPages,
-        getNextPageParam: ({ frame, framesCount }) =>
-            frame === framesCount ? undefined : frame + 1,
-        getPreviousPageParam: ({ frame }) =>
-            frame === 0 ? undefined : frame - 1,
-    })
-
-    const currentScene = query.data?.pages.find((e) => e)
-
     return (
         <KeyControlsProvider>
             <Canvas shadows>
@@ -176,12 +158,13 @@ export function Scene() {
                     intensity={Math.PI}
                 />
 
-                {currentScene && (
-                    <WorldProvider world={currentScene.state}>
-                        <World />
-                    </WorldProvider>
-                )}
+                <World />
 
+                <Sky
+                    sunPosition={[300, 300, 300]}
+                    turbidity={0.1}
+                    rayleigh={0.001}
+                />
                 <KeyControlsHandler />
                 <CameraControls makeDefault />
             </Canvas>

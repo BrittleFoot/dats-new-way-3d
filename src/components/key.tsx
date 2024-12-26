@@ -29,15 +29,15 @@ export function KeyControlsHandler() {
     const controls = useThree((state) => state.controls) as CameraControls
     const [, get] = useKeyboardControls()
 
-    const SPEED = 0.1
+    const SPEED = 75
 
     useFrame((_, delta) => {
         const { forward, backward, left, right, jump, crouch } = get()
 
-        if (forward) controls.forward(SPEED)
-        if (backward) controls.forward(-SPEED)
-        if (jump) controls.elevate(SPEED)
-        if (crouch) controls.elevate(-SPEED)
+        if (forward) controls.forward(SPEED * delta)
+        if (backward) controls.forward(-SPEED * delta)
+        if (jump) controls.elevate(SPEED * delta)
+        if (crouch) controls.elevate(-SPEED * delta)
 
         // if (left) controls.moveRight(-SPEED)
         // if (right) controls.moveRight(SPEED)
