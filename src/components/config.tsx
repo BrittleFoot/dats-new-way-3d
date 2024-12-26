@@ -1,29 +1,53 @@
 'use client'
 
-import React, { createContext, ReactNode, useContext, useState } from 'react'
+import { CameraControls } from '@react-three/drei'
+import React, {
+    createContext,
+    ReactNode,
+    useContext,
+    useMemo,
+    useState,
+} from 'react'
 
-interface Config {
-    scale?: number
-}
+type Config = Partial<{
+    selectedSnakeId: string
+    cameraControls: CameraControls
+}>
 
-interface ConfigContextProps {
+const defaultConfig: Config = {}
+
+type ConfigContextProps = {
     config: Config
     setConfig: (config: Config) => void
-}
-
-const defaultConfig: Config = {
-    scale: 1,
+    insertConfig: (config: Config) => void
 }
 
 const ConfigContext = createContext<ConfigContextProps | undefined>(undefined)
 
-export const ConfigProvider: React.FC<{ children: ReactNode }> = ({
-    children,
-}) => {
+export const ConfigProvider: React.FC<{
+    children: ReactNode
+}> = ({ children }) => {
     const [config, setConfig] = useState<Config>(defaultConfig)
 
+    const configObject = useMemo(() => {
+        const _setConfig = (config: Config) => {
+            setConfig(config)
+        }
+
+        return {
+            config,
+            setConfig: _setConfig,
+            insertConfig: (config: Config) => {
+                setConfig((prev) => {
+                    const newConfig = { ...prev, ...config }
+                    return newConfig
+                })
+            },
+        }
+    }, [config, setConfig])
+
     return (
-        <ConfigContext.Provider value={{ config, setConfig }}>
+        <ConfigContext.Provider value={configObject}>
             {children}
         </ConfigContext.Provider>
     )

@@ -9,8 +9,10 @@ export function Home() {
     return (
         <WorldProvider>
             <ConfigProvider>
-                <div className="grid h-full grid-cols-[20em,1fr] gap-2">
-                    <Sidebar />
+                <div className="relative h-full">
+                    <div className="absolute inset-2 z-[100] max-w-80">
+                        <Sidebar />
+                    </div>
                     <Scene />
                 </div>
             </ConfigProvider>

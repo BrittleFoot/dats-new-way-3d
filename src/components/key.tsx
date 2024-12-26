@@ -1,11 +1,8 @@
 'use client'
 
-import {
-    CameraControls,
-    KeyboardControls,
-    useKeyboardControls,
-} from '@react-three/drei'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useCameraControls } from '@/lib/hooks'
+import { KeyboardControls, useKeyboardControls } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
 import { ReactNode } from 'react'
 
 export function KeyControlsProvider({ children }: { children: ReactNode }) {
@@ -26,18 +23,25 @@ export function KeyControlsProvider({ children }: { children: ReactNode }) {
 }
 
 export function KeyControlsHandler() {
-    const controls = useThree((state) => state.controls) as CameraControls
+    const controls = useCameraControls()
     const [, get] = useKeyboardControls()
 
     const SPEED = 75
 
     useFrame((_, delta) => {
+        if (!controls) return
+
         const { forward, backward, left, right, jump, crouch } = get()
 
         if (forward) controls.forward(SPEED * delta)
         if (backward) controls.forward(-SPEED * delta)
         if (jump) controls.elevate(SPEED * delta)
         if (crouch) controls.elevate(-SPEED * delta)
+
+        if (left) {
+        }
+        if (right) {
+        }
 
         // if (left) controls.moveRight(-SPEED)
         // if (right) controls.moveRight(SPEED)
