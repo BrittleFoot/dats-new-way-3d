@@ -3,15 +3,8 @@
 
 import { useCameraControls } from '@/lib/hooks'
 import { Food, Point } from '@/lib/type'
-import {
-    Box,
-    CameraControls,
-    CatmullRomLine,
-    Line,
-    Sky,
-    Sphere,
-    useFBX,
-} from '@react-three/drei'
+import { animated, useSpring } from '@react-spring/three'
+import { CameraControls, Line, Sky, Sphere } from '@react-three/drei'
 import { Canvas, ThreeElements } from '@react-three/fiber'
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'
 import { Color, Mesh, Vector3 } from 'three'
@@ -28,13 +21,16 @@ function SnakeBody({
     const [hovered, setHover] = useState(false)
     const [active, setActive] = useState(false)
 
+    const spring = useSpring({
+        position: position,
+    })
+
     return (
-        <Box
+        <animated.mesh
             {...props}
-            position={position}
+            position={spring.position}
             ref={meshRef}
             scale={active ? 1.5 : 1}
-            args={[1, 1, 1]}
             onClick={(e) => {
                 e.stopPropagation()
                 setActive(!active)
@@ -48,19 +44,13 @@ function SnakeBody({
                 setHover(false)
             }}
         >
-            <meshStandardMaterial
-                color={color}
-                opacity={0.3}
-                transparent
-                forceSinglePass
-            />
-        </Box>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial color={color} opacity={0.5} transparent />
+        </animated.mesh>
     )
 }
 
 function Orange({ food }: { food: Food }) {
-    const model = useFBX('/orange.fbx')
-
     const color = new Color(0xffa500)
     if (food.type === 'golden') {
         color.set(0xffff00)
@@ -98,17 +88,12 @@ function Each({ children }: PropsWithChildren) {
 
 function SlickSnake({ snake }: { snake: { geometry: Point[] } }) {
     return (
-        <CatmullRomLine
+        <Line
             points={snake.geometry}
             color={'green'}
             lineWidth={5}
-            tension={0.3}
-            curveType="catmullrom"
-            vertexColors={[
-                [1, 0, 0],
-                [0, 1, 0],
-                [0, 1, 0],
-            ]}
+            // tension={0.3}
+            // curveType="catmullrom"
         />
     )
 }
