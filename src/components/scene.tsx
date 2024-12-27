@@ -3,47 +3,21 @@
 
 import { useCameraControls } from '@/lib/hooks'
 import { Food, Point } from '@/lib/type'
-import { CameraControls, Sky } from '@react-three/drei'
-import { Canvas, ThreeElements, useFrame } from '@react-three/fiber'
+import {
+    Box,
+    CameraControls,
+    CatmullRomLine,
+    Line,
+    Sky,
+    Sphere,
+    useFBX,
+} from '@react-three/drei'
+import { Canvas, ThreeElements } from '@react-three/fiber'
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'
 import { Color, Mesh, Vector3 } from 'three'
 import { useConfig } from './config'
 import { KeyControlsHandler, KeyControlsProvider } from './key'
 import { useWorld } from './ui/world'
-
-function Template({
-    color,
-    ...props
-}: ThreeElements['mesh'] & { color?: Color }) {
-    const meshRef = useRef<Mesh>(null!)
-    const [hovered, setHover] = useState(false)
-    const [active, setActive] = useState(false)
-
-    useFrame((state, delta) => (meshRef.current.rotation.x += delta))
-
-    return (
-        <mesh
-            {...props}
-            ref={meshRef}
-            scale={active ? 1.5 : 1}
-            onClick={(e) => {
-                e.stopPropagation()
-                setActive(!active)
-            }}
-            onPointerOver={(e) => {
-                e.stopPropagation()
-                setHover(true)
-            }}
-            onPointerOut={(e) => {
-                e.stopPropagation()
-                setHover(false)
-            }}
-        >
-            <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial color={color} />
-        </mesh>
-    )
-}
 
 function SnakeBody({
     position,
@@ -55,11 +29,12 @@ function SnakeBody({
     const [active, setActive] = useState(false)
 
     return (
-        <mesh
+        <Box
             {...props}
             position={position}
             ref={meshRef}
             scale={active ? 1.5 : 1}
+            args={[1, 1, 1]}
             onClick={(e) => {
                 e.stopPropagation()
                 setActive(!active)
@@ -73,13 +48,19 @@ function SnakeBody({
                 setHover(false)
             }}
         >
-            <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial color={color} />
-        </mesh>
+            <meshStandardMaterial
+                color={color}
+                opacity={0.3}
+                transparent
+                forceSinglePass
+            />
+        </Box>
     )
 }
 
 function Orange({ food }: { food: Food }) {
+    const model = useFBX('/orange.fbx')
+
     const color = new Color(0xffa500)
     if (food.type === 'golden') {
         color.set(0xffff00)
@@ -89,10 +70,11 @@ function Orange({ food }: { food: Food }) {
     }
 
     return (
-        <mesh position={food.c}>
-            <sphereGeometry args={[0.5, 8, 8]} />
-            <meshStandardMaterial color={color} />
-        </mesh>
+        <>
+            <Sphere position={food.c} args={[0.5, 8, 16]}>
+                <meshStandardMaterial color={color} />
+            </Sphere>
+        </>
     )
 }
 
@@ -114,6 +96,23 @@ function Each({ children }: PropsWithChildren) {
     return <>{children}</>
 }
 
+function SlickSnake({ snake }: { snake: { geometry: Point[] } }) {
+    return (
+        <CatmullRomLine
+            points={snake.geometry}
+            color={'green'}
+            lineWidth={5}
+            tension={0.3}
+            curveType="catmullrom"
+            vertexColors={[
+                [1, 0, 0],
+                [0, 1, 0],
+                [0, 1, 0],
+            ]}
+        />
+    )
+}
+
 function Snakes() {
     const {
         world: { rawWorld },
@@ -123,6 +122,7 @@ function Snakes() {
         <>
             {rawWorld.snakes.map((snake) => (
                 <Each key={snake.id}>
+                    <SlickSnake snake={snake} />
                     <SnakeBody
                         position={snake.geometry[0]}
                         color={new Color(0xff0000)}
@@ -149,14 +149,32 @@ function BoundingBox() {
         },
     } = useWorld()
 
-    return (
-        <>
-            <mesh position={[boxX / 2, boxY / 2, boxZ / 2]}>
-                <boxGeometry args={[boxX, boxY, boxZ]} />
-                <meshBasicMaterial wireframe />
-            </mesh>
-        </>
-    )
+    const f1 = [
+        [0, 0, 0],
+        [0, 0, boxZ],
+        [0, 0, 0],
+
+        [boxX, 0, 0],
+        [boxX, 0, boxZ],
+        [boxX, 0, 0],
+
+        [boxX, boxY, 0],
+        [boxX, boxY, boxZ],
+        [boxX, boxY, 0],
+
+        [0, boxY, 0],
+        [0, boxY, boxZ],
+        [0, boxY, 0],
+
+        [0, 0, 0],
+        [0, 0, boxZ],
+        [boxX, 0, boxZ],
+        [boxX, boxY, boxZ],
+        [0, boxY, boxZ],
+        [0, 0, boxZ],
+    ] as Point[]
+
+    return <Line points={f1} color={'hotpink'} lineWidth={3} />
 }
 
 export function World() {
