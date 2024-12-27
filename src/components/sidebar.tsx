@@ -149,7 +149,7 @@ function WorldController() {
                                 (x) => x / 2,
                             )
 
-                            config.cameraControls.setPosition(x, y, z * 3)
+                            config.cameraControls.setPosition(x, y, z * 4)
                         }}
                     >
                         <CameraIcon />

@@ -6,7 +6,7 @@ import { Food, Point } from '@/lib/type'
 import { CameraControls, Sky } from '@react-three/drei'
 import { Canvas, ThreeElements, useFrame } from '@react-three/fiber'
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'
-import { Color, Mesh } from 'three'
+import { Color, Mesh, Vector3 } from 'three'
 import { useConfig } from './config'
 import { KeyControlsHandler, KeyControlsProvider } from './key'
 import { useWorld } from './ui/world'
@@ -140,9 +140,29 @@ function Snakes() {
     )
 }
 
+function BoundingBox() {
+    const {
+        world: {
+            rawWorld: {
+                mapSize: [boxX, boxY, boxZ],
+            },
+        },
+    } = useWorld()
+
+    return (
+        <>
+            <mesh position={[boxX / 2, boxY / 2, boxZ / 2]}>
+                <boxGeometry args={[boxX, boxY, boxZ]} />
+                <meshBasicMaterial wireframe />
+            </mesh>
+        </>
+    )
+}
+
 export function World() {
     return (
         <>
+            <BoundingBox />
             <Snakes />
             <Oranges />
         </>
@@ -156,6 +176,7 @@ function SnakeScene() {
     } = useWorld()
     const { config, insertConfig } = useConfig()
     const cc = useCameraControls()
+    const mapSize = rawWorld.mapSize
 
     if (config.cameraControls !== cc) {
         insertConfig({ cameraControls: cc ?? undefined })
@@ -206,7 +227,7 @@ function SnakeScene() {
             />
             <World />
             <Sky
-                sunPosition={[300, 300, 300]}
+                sunPosition={new Vector3(...mapSize.map((v) => v * 2))}
                 turbidity={0.1}
                 rayleigh={0.001}
             />
