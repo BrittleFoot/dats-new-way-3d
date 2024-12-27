@@ -5,7 +5,7 @@ import { useCameraControls } from '@/lib/hooks'
 import { Food, Point } from '@/lib/type'
 import { CameraControls, Sky } from '@react-three/drei'
 import { Canvas, ThreeElements, useFrame } from '@react-three/fiber'
-import { PropsWithChildren, useRef, useState } from 'react'
+import { PropsWithChildren, useEffect, useRef, useState } from 'react'
 import { Color, Mesh } from 'three'
 import { useConfig } from './config'
 import { KeyControlsHandler, KeyControlsProvider } from './key'
@@ -152,6 +152,7 @@ export function World() {
 function SnakeScene() {
     const {
         world: { rawWorld },
+        next,
     } = useWorld()
     const { config, insertConfig } = useConfig()
     const cc = useCameraControls()
@@ -176,6 +177,17 @@ function SnakeScene() {
             cc.setTarget(...snake.geometry[0], true)
         }
     }
+
+    useEffect(() => {
+        if (config.playback !== 'play') {
+            return
+        }
+        const timeout = setTimeout(() => {
+            next()
+        }, rawWorld.tickRemainMs / 10)
+
+        return () => clearTimeout(timeout)
+    }, [config.playback, rawWorld, next])
 
     return (
         <>

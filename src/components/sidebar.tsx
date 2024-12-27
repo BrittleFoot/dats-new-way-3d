@@ -1,8 +1,10 @@
 import { Snake } from '@/lib/type'
 import { cn, randomName } from '@/lib/utils'
 import {
+    CameraIcon,
     Loader2Icon,
     MapPinIcon,
+    PauseIcon,
     PlayIcon,
     StepBackIcon,
     StepForwardIcon,
@@ -79,37 +81,36 @@ function SnakeWidget({ snake }: { snake: Snake }) {
                     )}
                 </div>
 
-                {!selected && (
-                    <Button onClick={onClick} className="mt-2">
-                        Select
-                    </Button>
-                )}
-                {selected && (
-                    <Label className={buttonVariants({ variant: 'outline' })}>
-                        <Checkbox
-                            checked={config.followSnake}
-                            onCheckedChange={(c) =>
-                                insertConfig({ followSnake: c === true })
-                            }
-                        />
-                        Follow
-                    </Label>
-                )}
-
-                {alive && (
-                    <>
-                        <Button
-                            onClick={() => {
-                                if (!selected) {
-                                    insertConfig({ followSnake: false })
-                                }
-                                cc?.setTarget(...snake.geometry[0], true)
-                            }}
+                <div className="flex gap-2 items-center">
+                    {!selected && <Button onClick={onClick}>Select</Button>}
+                    {selected && (
+                        <Label
+                            className={buttonVariants({ variant: 'outline' })}
                         >
-                            <MapPinIcon /> Locate
-                        </Button>
-                    </>
-                )}
+                            <Checkbox
+                                checked={config.followSnake}
+                                onCheckedChange={(c) =>
+                                    insertConfig({ followSnake: c === true })
+                                }
+                            />
+                            Follow
+                        </Label>
+                    )}
+                    {alive && (
+                        <>
+                            <Button
+                                onClick={() => {
+                                    if (!selected) {
+                                        insertConfig({ followSnake: false })
+                                    }
+                                    cc?.setTarget(...snake.geometry[0], true)
+                                }}
+                            >
+                                <MapPinIcon /> Locate
+                            </Button>
+                        </>
+                    )}
+                </div>
             </CardContent>
         </Card>
     )
@@ -117,11 +118,12 @@ function SnakeWidget({ snake }: { snake: Snake }) {
 
 function WorldController() {
     const w = useWorld()
+    const { config, insertConfig } = useConfig()
 
     const debouncedSeek = useDebounceCallback(w.seek, 5)
 
     return (
-        <Card>
+        <Card className="backdrop-blur bg-card/80 shadow-none">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     World
@@ -133,13 +135,31 @@ function WorldController() {
                         })}
                     />
                 </CardTitle>
-                <CardDescription>Control the world</CardDescription>
             </CardHeader>
             <CardContent>
+                <div className="flex gap-2 items-center py-2">
+                    <Button
+                        disabled={!config.cameraControls}
+                        onClick={() => {
+                            if (!config.cameraControls) {
+                                return
+                            }
+
+                            const [x, y, z] = w.world.rawWorld.mapSize.map(
+                                (x) => x / 2,
+                            )
+
+                            config.cameraControls.setPosition(x, y, z * 3)
+                        }}
+                    >
+                        <CameraIcon />
+                    </Button>
+                </div>
+
                 <div className="flex justify-between">
-                    <div className="">0</div>
-                    <div className="">{w.cursor}</div>
-                    <div className="">{w.maxCursor}</div>
+                    <div className="text-muted-foreground">0</div>
+                    <div className="font-bold">{w.cursor}</div>
+                    <div className="text-muted-foreground">{w.maxCursor}</div>
                 </div>
 
                 <Slider
@@ -149,7 +169,9 @@ function WorldController() {
                     onValueChange={(v) => {
                         // w.seek(v[0])
                         if (debouncedSeek) {
-                            debouncedSeek(v[0])
+                            debouncedSeek(
+                                Math.max(0, Math.min(v[0], w.maxCursor - 1)),
+                            )
                         }
                     }}
                     className="p-2 pb-4"
@@ -158,9 +180,20 @@ function WorldController() {
                     <Button onClick={() => w.prev()}>
                         <StepBackIcon />
                     </Button>
-                    <Button>
-                        <PlayIcon />
-                    </Button>
+                    {config.playback === 'play' && (
+                        <Button
+                            onClick={() => insertConfig({ playback: 'pause' })}
+                        >
+                            <PauseIcon />
+                        </Button>
+                    )}
+                    {config.playback === 'pause' && (
+                        <Button
+                            onClick={() => insertConfig({ playback: 'play' })}
+                        >
+                            <PlayIcon />
+                        </Button>
+                    )}
                     <Button onClick={() => w.next()}>
                         <StepForwardIcon />
                     </Button>

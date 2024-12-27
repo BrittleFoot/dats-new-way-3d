@@ -13,9 +13,12 @@ type Config = Partial<{
     selectedSnakeId: string
     cameraControls: CameraControls
     followSnake: boolean
+    playback: 'play' | 'pause'
 }>
 
-const defaultConfig: Config = {}
+const defaultConfig: Config = {
+    playback: 'pause',
+}
 
 type ConfigContextProps = {
     config: Config
