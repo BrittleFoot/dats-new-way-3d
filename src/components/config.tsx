@@ -12,6 +12,7 @@ import React, {
 type Config = Partial<{
     selectedSnakeId: string
     cameraControls: CameraControls
+    followSnake: boolean
 }>
 
 const defaultConfig: Config = {}

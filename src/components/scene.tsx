@@ -97,7 +97,9 @@ function Orange({ food }: { food: Food }) {
 }
 
 function Oranges() {
-    const { food } = useWorld()
+    const {
+        world: { food },
+    } = useWorld()
 
     return (
         <>
@@ -113,11 +115,13 @@ function Each({ children }: PropsWithChildren) {
 }
 
 function Snakes() {
-    const { rawWorld: world } = useWorld()
+    const {
+        world: { rawWorld },
+    } = useWorld()
 
     return (
         <>
-            {world.snakes.map((snake) => (
+            {rawWorld.snakes.map((snake) => (
                 <Each key={snake.id}>
                     <SnakeBody
                         position={snake.geometry[0]}
@@ -146,18 +150,30 @@ export function World() {
 }
 
 function SnakeScene() {
-    const { rawWorld } = useWorld()
+    const {
+        world: { rawWorld },
+    } = useWorld()
     const { config, insertConfig } = useConfig()
-    const camera = useCameraControls()
+    const cc = useCameraControls()
 
-    if (config.cameraControls !== camera) {
-        insertConfig({ cameraControls: camera ?? undefined })
+    if (config.cameraControls !== cc) {
+        insertConfig({ cameraControls: cc ?? undefined })
     }
 
     if (!config.selectedSnakeId) {
         const snake = rawWorld.snakes.find((snake) => snake.status === 'alive')
         if (snake) {
             insertConfig({ selectedSnakeId: snake.id })
+        }
+    }
+
+    if (cc && config.followSnake && config.selectedSnakeId) {
+        const snake = rawWorld.snakes.find(
+            (snake) => snake.id === config.selectedSnakeId,
+        )
+
+        if (snake) {
+            cc.setTarget(...snake.geometry[0], true)
         }
     }
 

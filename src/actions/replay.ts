@@ -7,7 +7,8 @@ import path from 'path'
 // Cache the file data in memory
 const cachedLines: GameState[] = []
 
-const MAX_FRAMES = 10
+const MAX_FRAMES = 1000
+const EXTRA = 10
 
 const filePath = path.join(
     process.cwd(),
@@ -34,7 +35,7 @@ const loadFileAsync = async () => {
 }
 
 const lazyLoad = async () => {
-    if (cachedLines.length > 0) {
+    if (cachedLines.length > EXTRA) {
         return cachedLines
     }
 
@@ -42,8 +43,8 @@ const lazyLoad = async () => {
 
     console.time('⏰ First line loaded')
 
-    while (cachedLines.length === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 1))
+    while (cachedLines.length < EXTRA) {
+        await new Promise((resolve) => setTimeout(resolve, 10))
     }
 
     console.timeEnd('⏰ First line loaded')
@@ -54,15 +55,27 @@ export type ReplayResponse = {
     frame: number
     framesCount: number
     state: GameState
+
+    extra: Record<number, GameState>
 }
 
-export async function replay(n: number) {
+export async function replay(n: number, loadExtra: number = EXTRA) {
     const state = await lazyLoad()
     const maxFrames = state.length - 1
-    const frame = Math.min(maxFrames, Math.max(0, n))
+    const clump = (key: number) => Math.min(maxFrames, Math.max(0, key))
+
+    const frame = clump(n)
+
+    const extraFrameEnd = clump(frame + loadExtra)
+
+    const extra = state
+        .map((world, idx) => [idx, world])
+        .slice(frame, extraFrameEnd)
+
     return {
         frame,
         framesCount: maxFrames,
         state: state[frame],
+        extra: Object.fromEntries(extra),
     } as ReplayResponse
 }

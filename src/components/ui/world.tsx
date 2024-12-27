@@ -2,73 +2,151 @@
 
 import { replay } from '@/actions/replay'
 import { Food, GameState, WORLD_ZERO } from '@/lib/type'
-import { useInfiniteQuery } from '@tanstack/react-query'
-import { createContext, ReactNode, useContext, useMemo, useState } from 'react'
+import { useQuery, UseQueryResult } from '@tanstack/react-query'
+import {
+    createContext,
+    Dispatch,
+    ReactNode,
+    SetStateAction,
+    useContext,
+    useMemo,
+    useState,
+} from 'react'
 
-const WorldContext = createContext<GameState>(WORLD_ZERO)
+type QueryType = {
+    query: UseQueryResult<GameState, Error>
+    cursor: number
+    setCursor: Dispatch<SetStateAction<number>>
+    maxPages: number
+    cache: Record<number, GameState>
+}
+
+const WorldContext = createContext<QueryType>(null!)
 
 export const WorldProvider = ({ children }: { children: ReactNode }) => {
     const [maxPages, setMaxPages] = useState(0)
+    const [cursor, setCursor] = useState(0)
+    const [cache, setCache] = useState<Record<number, GameState>>({})
 
-    const query = useInfiniteQuery({
-        queryKey: ['scene'],
-        queryFn: async ({ pageParam }) => {
-            const data = await replay(pageParam)
-            setMaxPages(data.framesCount)
-            return data
+    const preload = async (page: number, extra: number = 5) => {
+        const data = await replay(page, extra)
+
+        if (maxPages !== data.framesCount) setMaxPages(data.framesCount)
+        setCache((prev) => ({ ...prev, ...data.extra }))
+
+        return data
+    }
+
+    function findFirstGapInCache() {
+        let i = 0
+        while (cache[i]) i++
+        return i
+    }
+
+    // useEffect(() => {
+    //     const prefetchJob = setInterval(async () => {
+    //         let start = findFirstGapInCache()
+    //         const data = await preload(start, 50)
+
+    //         console.log('🔍 Prefetching', start, '/', data.framesCount)
+    //         if (start >= data.framesCount) {
+    //             console.log('✅ World Prefetch Done')
+    //             clearInterval(prefetchJob)
+    //         }
+    //     }, 100)
+
+    //     return () => {
+    //         clearInterval(prefetchJob)
+    //     }
+    // }, [])
+
+    const query = useQuery({
+        queryKey: ['scene', cursor],
+        queryFn: async () => {
+            if (cursor > 0 && cursor < maxPages - 3 && cache[cursor]) {
+                return cache[cursor]
+            }
+            const data = await preload(cursor)
+
+            return data.state
         },
-        initialPageParam: 0,
-        maxPages: maxPages,
-        getNextPageParam: ({ frame, framesCount }) =>
-            frame === framesCount ? undefined : frame + 1,
-        getPreviousPageParam: ({ frame }) =>
-            frame === 0 ? undefined : frame - 1,
+        placeholderData: (prev) => {
+            const cached = cache[cursor]
+            if (cached) return cached
+
+            return prev ?? WORLD_ZERO
+        },
     })
 
-    const currentScene = query.data?.pages.find((e) => e)
-
     return (
-        <WorldContext.Provider value={currentScene?.state ?? WORLD_ZERO}>
+        <WorldContext.Provider
+            value={{
+                query,
+                cursor,
+                setCursor,
+                maxPages,
+                cache,
+            }}
+        >
             {children}
         </WorldContext.Provider>
     )
 }
 
-export const useWorld = () => {
-    const rawWorld = useContext(WorldContext)
-    if (!rawWorld) {
-        throw new Error('useConfig must be used within a WorldProvider')
+function parseWorld(state: GameState) {
+    const golden = new Set(state.specialFood.golden.map((c) => c.join(',')))
+    const sus = new Set(state.specialFood.suspicious.map((c) => c.join(',')))
+
+    const getType = (food: Food) => {
+        const c = food.c.join(',')
+        if (golden.has(c)) return 'golden'
+        if (sus.has(c)) return 'suspicious'
+        return 'normal'
     }
 
-    const parsedWorld = useMemo(() => {
-        const golden = new Set(
-            rawWorld.specialFood.golden.map((c) => c.join(',')),
-        )
-        const sus = new Set(
-            rawWorld.specialFood.suspicious.map((c) => c.join(',')),
-        )
+    const food = state.food.map(
+        (f) =>
+            ({
+                c: f.c,
+                points: f.points,
+                type: getType(f),
+            }) as Food,
+    )
 
-        const getType = (food: Food) => {
-            const c = food.c.join(',')
-            if (golden.has(c)) return 'golden'
-            if (sus.has(c)) return 'suspicious'
-            return 'normal'
-        }
+    return {
+        rawWorld: state,
+        food,
+    }
+}
 
-        const food = rawWorld.food.map(
-            (f) =>
-                ({
-                    c: f.c,
-                    points: f.points,
-                    type: getType(f),
-                }) as Food,
-        )
+export const useWorld = () => {
+    const worldContext = useContext(WorldContext)
 
-        return {
-            rawWorld,
-            food,
-        }
-    }, [rawWorld])
+    if (!worldContext) {
+        throw new Error('useWrold must be used within a WorldProvider')
+    }
 
-    return parsedWorld
+    const { query, cursor, setCursor, maxPages, cache } = worldContext
+
+    return useMemo(
+        () => ({
+            maxCursor: maxPages,
+            query,
+            cursor,
+            cache,
+            seek(page: number) {
+                setCursor((prev) => Math.min(maxPages, Math.max(0, page)))
+            },
+            next() {
+                setCursor((prev) => Math.min(maxPages, prev + 1))
+            },
+            prev() {
+                setCursor((prev) => Math.max(0, prev - 1))
+            },
+            get world() {
+                return parseWorld(query.data ?? WORLD_ZERO)
+            },
+        }),
+        [query, cursor, setCursor, maxPages],
+    )
 }
