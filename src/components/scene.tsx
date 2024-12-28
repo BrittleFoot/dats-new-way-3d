@@ -50,6 +50,34 @@ function SnakeBody({
     )
 }
 
+function EnemyBody({
+    position,
+    color,
+    ...props
+}: { position: Point; color: Color } & ThreeElements['mesh']) {
+    const meshRef = useRef<Mesh>(null!)
+
+    return (
+        <mesh
+            {...props}
+            position={position}
+            ref={meshRef}
+            onClick={(e) => {
+                e.stopPropagation()
+            }}
+            onPointerOver={(e) => {
+                e.stopPropagation()
+            }}
+            onPointerOut={(e) => {
+                e.stopPropagation()
+            }}
+        >
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial color={color} />
+        </mesh>
+    )
+}
+
 function Orange({ food }: { food: Food }) {
     const color = new Color(0xffa500)
     if (food.type === 'golden') {
@@ -61,7 +89,7 @@ function Orange({ food }: { food: Food }) {
 
     return (
         <>
-            <Sphere position={food.c} args={[0.5, 8, 16]}>
+            <Sphere position={food.c} args={[0.5, 8, 8]}>
                 <meshStandardMaterial color={color} />
             </Sphere>
         </>
@@ -82,20 +110,39 @@ function Oranges() {
     )
 }
 
+function Wall({ position }: { position: Point }) {
+    return (
+        <mesh position={position}>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial
+                color={new Color(0xffffff)}
+                transparent
+                opacity={0.8}
+            />
+        </mesh>
+    )
+}
+
+function Walls() {
+    const {
+        world: { rawWorld },
+    } = useWorld()
+
+    return (
+        <Each>
+            {rawWorld.fences.map((position) => (
+                <Wall key={position.join('-')} position={position} />
+            ))}
+        </Each>
+    )
+}
+
 function Each({ children }: PropsWithChildren) {
     return <>{children}</>
 }
 
 function SlickSnake({ snake }: { snake: { geometry: Point[] } }) {
-    return (
-        <Line
-            points={snake.geometry}
-            color={'green'}
-            lineWidth={5}
-            // tension={0.3}
-            // curveType="catmullrom"
-        />
-    )
+    return <Line points={snake.geometry} color={'green'} lineWidth={5} />
 }
 
 function Snakes() {
@@ -110,13 +157,39 @@ function Snakes() {
                     <SlickSnake snake={snake} />
                     <SnakeBody
                         position={snake.geometry[0]}
-                        color={new Color(0xff0000)}
+                        color={new Color(0xff6600)}
                     />
                     {snake.geometry.slice(1).map((point, i) => (
                         <SnakeBody
                             key={`${snake.id}-${i}`}
                             position={point}
                             color={new Color(0x00ff00)}
+                        />
+                    ))}
+                </Each>
+            ))}
+        </>
+    )
+}
+
+function Enemies() {
+    const {
+        world: { rawWorld },
+    } = useWorld()
+
+    return (
+        <>
+            {rawWorld.enemies.map((enemy, j) => (
+                <Each key={j}>
+                    <EnemyBody
+                        position={enemy.geometry[0]}
+                        color={new Color(0x0000ff)}
+                    />
+                    {enemy.geometry.slice(1).map((point, i) => (
+                        <EnemyBody
+                            key={`${i}`}
+                            position={point}
+                            color={new Color(0x6633ff)}
                         />
                     ))}
                 </Each>
@@ -168,6 +241,8 @@ export function World() {
             <BoundingBox />
             <Snakes />
             <Oranges />
+            <Enemies />
+            <Walls />
         </>
     )
 }
