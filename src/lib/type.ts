@@ -59,3 +59,57 @@ export const WORLD_ZERO: GameState = {
     reviveTimeoutSec: 0,
     tickRemainMs: 0,
 }
+
+function posHash(x: number, y: number, z: number) {
+    return x + y * 1000 + z * 1_000_000
+}
+
+export function parseWorld(state: GameState) {
+    const golden = new Set(
+        state.specialFood.golden.map(([x, y, z]) => posHash(x, y, z)),
+    )
+    const sus = new Set(
+        state.specialFood.suspicious.map(([x, y, z]) => posHash(z, y, z)),
+    )
+
+    const getType = ({ c: [x, y, z] }: Food) => {
+        const idx = posHash(x, y, z)
+        if (golden.has(idx)) return 'golden'
+        if (sus.has(idx)) return 'suspicious'
+        return 'normal'
+    }
+
+    const food = state.food.map(
+        (f) =>
+            ({
+                c: f.c,
+                points: f.points,
+                type: getType(f),
+            }) as Food,
+    )
+
+    const partitionedWalls = new Map<string, Point[]>()
+
+    state.fences.forEach((point) => {
+        const [x, y, z] = point
+        const key = `${Math.floor(x / 30)}_${Math.floor(y / 30)}_${Math.floor(z / 30)}`
+        if (!partitionedWalls.has(key)) {
+            partitionedWalls.set(key, [])
+        }
+        partitionedWalls.get(key)!.push(point)
+    })
+
+    return {
+        ...state,
+        parsedFood: food,
+        parsedWalls: partitionedWalls,
+    }
+}
+
+export type GameStateImproved = GameState & ReturnType<typeof parseWorld>
+
+export const BETTER_WORLD_ZERO: GameStateImproved = {
+    ...WORLD_ZERO,
+    parsedFood: [],
+    parsedWalls: new Map(),
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { GameState } from '@/lib/type'
+import { GameStateImproved, parseWorld } from '@/lib/type'
 import { memo, useCallback, useState } from 'react'
 import useWebSocket from 'react-use-websocket'
 import { Button } from '../ui/button'
@@ -12,7 +12,7 @@ const WEBSOCKET_URL = 'ws://localhost:8765/replay'
 type ReplaySnapshot = {
     id: string
     turn: number
-    data: GameState
+    data: GameStateImproved
 }
 
 type SnapshotMessage = {
@@ -112,7 +112,11 @@ export function useReplayStream(name: string, options?: { rate: number }) {
 
                 // Update only if there's a change
                 if (!sameTurn || (sameTurn && old.id < snap.id)) {
-                    newSnapshots[snap.turn] = snap
+                    newSnapshots[snap.turn] = {
+                        id: snap.id,
+                        turn: snap.turn,
+                        data: parseWorld(snap.data),
+                    }
                 }
             })
             return newSnapshots

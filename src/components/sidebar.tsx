@@ -1,4 +1,4 @@
-import { Snake } from '@/lib/type'
+import { Snake, WORLD_ZERO } from '@/lib/type'
 import { cn, randomName } from '@/lib/utils'
 import {
     CameraIcon,
@@ -23,7 +23,7 @@ import {
 import { Checkbox } from './ui/checkbox'
 import { Label } from './ui/label'
 import { Slider } from './ui/slider'
-import { useWorld } from './ui/world'
+import { useWorld, useWorldCursor } from './world'
 
 function SnakeWidget({ snake }: { snake: Snake }) {
     const { config, insertConfig } = useConfig()
@@ -118,6 +118,7 @@ function SnakeWidget({ snake }: { snake: Snake }) {
 
 function WorldController() {
     const w = useWorld()
+    const c = useWorldCursor()
     const { config, insertConfig } = useConfig()
 
     const debouncedSeek = useDebounceCallback(w.seek, 5)
@@ -129,9 +130,7 @@ function WorldController() {
                     World
                     <Loader2Icon
                         className={cn('w-4 animate-spin opacity-0', {
-                            'opacity-100':
-                                w.query.isLoading ||
-                                w.cache[w.cursor] === undefined,
+                            'opacity-100': w.world === WORLD_ZERO,
                         })}
                     />
                 </CardTitle>
@@ -145,9 +144,7 @@ function WorldController() {
                                 return
                             }
 
-                            const [x, y, z] = w.world.rawWorld.mapSize.map(
-                                (x) => x / 2,
-                            )
+                            const [x, y, z] = w.world.mapSize.map((x) => x / 2)
 
                             config.cameraControls.setPosition(x, y, z * 4)
                         }}
@@ -158,26 +155,26 @@ function WorldController() {
 
                 <div className="flex justify-between">
                     <div className="text-muted-foreground">0</div>
-                    <div className="font-bold">{w.cursor}</div>
-                    <div className="text-muted-foreground">{w.maxCursor}</div>
+                    <div className="font-bold">{c.cursor}</div>
+                    <div className="text-muted-foreground">{c.maxCursor}</div>
                 </div>
 
                 <Slider
-                    value={[w.cursor]}
+                    value={[c.cursor]}
                     min={0}
-                    max={w.maxCursor - 1}
+                    max={c.maxCursor - 1}
                     onValueChange={(v) => {
                         // w.seek(v[0])
                         if (debouncedSeek) {
                             debouncedSeek(
-                                Math.max(0, Math.min(v[0], w.maxCursor - 1)),
+                                Math.max(0, Math.min(v[0], c.maxCursor - 1)),
                             )
                         }
                     }}
                     className="p-2 pb-4"
                 />
                 <div className="flex w-full justify-between">
-                    <Button onClick={() => w.prev()}>
+                    <Button>
                         <StepBackIcon />
                     </Button>
                     {config.playback === 'play' && (
@@ -194,7 +191,7 @@ function WorldController() {
                             <PlayIcon />
                         </Button>
                     )}
-                    <Button onClick={() => w.next()}>
+                    <Button onClick={() => c.next()}>
                         <StepForwardIcon />
                     </Button>
                 </div>
@@ -209,7 +206,7 @@ export function Sidebar() {
     return (
         <div className="flex flex-col gap-2 flex-wrap">
             <WorldController />
-            {world.rawWorld.snakes.map((snake) => (
+            {world.snakes.map((snake) => (
                 <SnakeWidget key={snake.id} snake={snake} />
             ))}
         </div>

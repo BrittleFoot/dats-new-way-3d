@@ -2,15 +2,41 @@
 'use client'
 
 import { useCameraControls } from '@/lib/hooks'
-import { Food, Point } from '@/lib/type'
+import { Point } from '@/lib/type'
 import { animated, useSpring } from '@react-spring/three'
-import { CameraControls, Line, Sky, Sphere } from '@react-three/drei'
+import { CameraControls, Environment, Line, Sparkles } from '@react-three/drei'
 import { Canvas, ThreeElements } from '@react-three/fiber'
-import { PropsWithChildren, useEffect, useRef, useState } from 'react'
-import { Color, Mesh, Vector3 } from 'three'
+import {
+    memo,
+    PropsWithChildren,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react'
+import {
+    BoxGeometry,
+    Color,
+    InstancedBufferAttribute,
+    InstancedMesh,
+    Matrix4,
+    Mesh,
+    MeshStandardMaterial,
+    SphereGeometry,
+} from 'three'
 import { useConfig } from './config'
 import { KeyControlsHandler, KeyControlsProvider } from './key'
-import { useWorld } from './ui/world'
+import { useWorld, useWorldCursor } from './world'
+
+type PositionProps = {
+    x: number
+    y: number
+    z: number
+}
+
+function posHash(x: number, y: number, z: number) {
+    return x + y * 1000 + z * 1_000_000
+}
 
 function SnakeBody({
     position,
@@ -49,18 +75,19 @@ function SnakeBody({
         </animated.mesh>
     )
 }
-
-function EnemyBody({
-    position,
+const EnemyBody = memo(function EnemyBody({
+    x,
+    y,
+    z,
     color,
     ...props
-}: { position: Point; color: Color } & ThreeElements['mesh']) {
+}: PositionProps & { color: number } & ThreeElements['mesh']) {
     const meshRef = useRef<Mesh>(null!)
 
     return (
         <mesh
             {...props}
-            position={position}
+            position={[x, y, z]}
             ref={meshRef}
             onClick={(e) => {
                 e.stopPropagation()
@@ -73,46 +100,71 @@ function EnemyBody({
             }}
         >
             <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial color={color} />
+            <meshStandardMaterial color={new Color(color)} />
         </mesh>
     )
-}
-
-function Orange({ food }: { food: Food }) {
-    const color = new Color(0xffa500)
-    if (food.type === 'golden') {
-        color.set(0xffff00)
-    }
-    if (food.type === 'suspicious') {
-        color.set(0x99ff22)
-    }
-
-    return (
-        <>
-            <Sphere position={food.c} args={[0.5, 8, 8]}>
-                <meshStandardMaterial color={color} />
-            </Sphere>
-        </>
-    )
-}
+})
+EnemyBody.displayName = 'EnemyBody'
 
 function Oranges() {
     const {
-        world: { food },
+        world: {
+            parsedFood,
+            specialFood: { golden },
+        },
     } = useWorld()
+
+    const instancedOranges = useMemo(() => {
+        const geometry = new SphereGeometry(0.5, 16, 16) // Sphere geometry for oranges
+        const material = new MeshStandardMaterial({ vertexColors: true }) // Enable vertex colors
+        const instancedMesh = new InstancedMesh(
+            geometry,
+            material,
+            parsedFood.length,
+        )
+
+        const colors = new Float32Array(parsedFood.length * 3) // RGB color for each instance
+        parsedFood.forEach(({ c: [x, y, z], type }, i) => {
+            const matrix = new Matrix4()
+            matrix.setPosition(x, y, z)
+            instancedMesh.setMatrixAt(i, matrix)
+
+            // Assign color based on type
+            const color = new Color()
+            if (type === 'golden') {
+                color.set(0xffff00) // Yellow
+            } else if (type === 'suspicious') {
+                color.set(0x99ff22) // Greenish
+            } else {
+                color.set(0xffa500) // Orange
+            }
+            colors.set(color.toArray(), i * 3)
+        })
+
+        instancedMesh.instanceMatrix.needsUpdate = true // Notify Three.js of matrix updates
+        instancedMesh.geometry.setAttribute(
+            'color',
+            new InstancedBufferAttribute(colors, 3),
+        ) // Add colors
+        return instancedMesh
+    }, [parsedFood])
 
     return (
         <>
-            {food.map((food) => (
-                <Orange key={food.c.toString()} food={food} />
+            <primitive object={instancedOranges} />
+            {golden.map(([x, y, z], i) => (
+                <group key={i} position={[x, y, z]}>
+                    <Sparkles scale={2} color={0xffff00} size={20} />
+                </group>
             ))}
         </>
     )
 }
 
-function Wall({ position }: { position: Point }) {
+const Wall = memo(({ x, y, z }: PositionProps) => {
+    console.log('render wall')
     return (
-        <mesh position={position}>
+        <mesh position={[x, y, z]}>
             <boxGeometry args={[1, 1, 1]} />
             <meshStandardMaterial
                 color={new Color(0xffffff)}
@@ -121,19 +173,125 @@ function Wall({ position }: { position: Point }) {
             />
         </mesh>
     )
-}
+})
+Wall.displayName = 'Wall'
 
 function Walls() {
-    const {
-        world: { rawWorld },
-    } = useWorld()
+    const { world } = useWorld()
+
+    const walls = useMemo(() => {
+        const geometry = new BoxGeometry(1, 1, 1)
+        const material = new MeshStandardMaterial({
+            color: 0xaa6666,
+            transparent: true,
+            opacity: 0.5,
+
+            polygonOffset: true,
+            polygonOffsetFactor: 1, // Avoid z-fighting
+            polygonOffsetUnits: 1,
+        })
+        const instancedMesh = new InstancedMesh(
+            geometry,
+            material,
+            world.fences.length,
+        )
+
+        instancedMesh.frustumCulled = true
+
+        world.fences.forEach(([x, y, z], i) => {
+            const matrix = new Matrix4()
+            matrix.setPosition(x, y, z)
+            instancedMesh.setMatrixAt(i, matrix)
+        })
+
+        instancedMesh.instanceMatrix.needsUpdate = true
+        return instancedMesh
+    }, [world.fences])
+
+    return <primitive object={walls} />
+}
+
+function Walls2({ wallPoints }: { wallPoints: Point[] }) {
+    const walls = useMemo(() => {
+        const geometry = new BoxGeometry(1, 1, 1)
+        const material = new MeshStandardMaterial({
+            color: 0xaa6666,
+            transparent: true,
+            opacity: 0.5,
+
+            polygonOffset: true,
+            polygonOffsetFactor: 1, // Avoid z-fighting
+            polygonOffsetUnits: 1,
+        })
+        const instancedMesh = new InstancedMesh(
+            geometry,
+            material,
+            wallPoints.length,
+        )
+
+        instancedMesh.frustumCulled = true
+
+        wallPoints.forEach(([x, y, z], i) => {
+            const matrix = new Matrix4()
+            matrix.setPosition(x, y, z)
+            instancedMesh.setMatrixAt(i, matrix)
+        })
+
+        instancedMesh.instanceMatrix.needsUpdate = true
+        return instancedMesh
+    }, [wallPoints])
+
+    return <primitive object={walls} />
+}
+
+/**
+ * React component to manage and render walls.
+ */
+function WallsRenderer() {
+    const { world } = useWorld()
+
+    const [parsedWalls, setParsedWalls] = useState<typeof world.parsedWalls>(
+        new Map(),
+    )
+
+    useEffect(() => {
+        const newChunks = world.parsedWalls
+
+        setParsedWalls((currentChunks) => {
+            const updatedChunks = new Map<string, Point[]>()
+
+            // Iterate over new chunks
+            newChunks.forEach((newPoints, key) => {
+                const currentPoints = currentChunks.get(key)
+
+                // Update only if the chunk size has changed
+                if (
+                    !currentPoints ||
+                    currentPoints.length !== newPoints.length
+                ) {
+                    updatedChunks.set(key, newPoints)
+                } else {
+                    updatedChunks.set(key, currentPoints)
+                }
+            })
+
+            // Retain only the chunks that are still in the newChunks
+            currentChunks.forEach((_, key) => {
+                if (!newChunks.has(key)) {
+                    updatedChunks.delete(key)
+                }
+            })
+
+            return updatedChunks
+        })
+    }, [world.parsedWalls]) // Runs whenever `world.parsedWalls` changes
 
     return (
-        <Each>
-            {rawWorld.fences.map((position) => (
-                <Wall key={position.join('-')} position={position} />
+        <>
+            {Array.from(parsedWalls.entries()).map(([key, walls]) => (
+                <Walls2 key={key} wallPoints={walls} />
             ))}
-        </Each>
+        </>
     )
 }
 
@@ -146,13 +304,11 @@ function SlickSnake({ snake }: { snake: { geometry: Point[] } }) {
 }
 
 function Snakes() {
-    const {
-        world: { rawWorld },
-    } = useWorld()
+    const { world } = useWorld()
 
     return (
         <>
-            {rawWorld.snakes.map((snake) => (
+            {world.snakes.map((snake) => (
                 <Each key={snake.id}>
                     <SlickSnake snake={snake} />
                     <SnakeBody
@@ -173,37 +329,55 @@ function Snakes() {
 }
 
 function Enemies() {
-    const {
-        world: { rawWorld },
-    } = useWorld()
+    const { world } = useWorld()
 
-    return (
-        <>
-            {rawWorld.enemies.map((enemy, j) => (
-                <Each key={j}>
-                    <EnemyBody
-                        position={enemy.geometry[0]}
-                        color={new Color(0x0000ff)}
-                    />
-                    {enemy.geometry.slice(1).map((point, i) => (
-                        <EnemyBody
-                            key={`${i}`}
-                            position={point}
-                            color={new Color(0x6633ff)}
-                        />
-                    ))}
-                </Each>
-            ))}
-        </>
-    )
+    const instancedEnemies = useMemo(() => {
+        const totalInstances = world.enemies.reduce(
+            (count, { geometry }) => count + geometry.length,
+            0,
+        )
+        const geometry = new BoxGeometry(1, 1, 1)
+        const material = new MeshStandardMaterial({ vertexColors: true }) // Enable vertex colors
+        const instancedMesh = new InstancedMesh(
+            geometry,
+            material,
+            totalInstances,
+        )
+
+        const colors = new Float32Array(totalInstances * 3) // RGB per instance
+        let instanceIndex = 0
+
+        world.enemies.forEach(({ geometry: [[hx, hy, hz], ...body] }) => {
+            const headMatrix = new Matrix4()
+            headMatrix.setPosition(hx, hy, hz)
+            instancedMesh.setMatrixAt(instanceIndex, headMatrix)
+            colors.set([0, 0, 1], instanceIndex * 3) // Blue for head
+            instanceIndex++
+
+            body.forEach(([x, y, z]) => {
+                const bodyMatrix = new Matrix4()
+                bodyMatrix.setPosition(x, y, z)
+                instancedMesh.setMatrixAt(instanceIndex, bodyMatrix)
+                colors.set([0.4, 0.2, 1], instanceIndex * 3) // Purple for body
+                instanceIndex++
+            })
+        })
+
+        instancedMesh.instanceMatrix.needsUpdate = true
+        instancedMesh.geometry.setAttribute(
+            'color',
+            new InstancedBufferAttribute(colors, 3),
+        ) // Set colors
+        return instancedMesh
+    }, [world.enemies])
+
+    return <primitive object={instancedEnemies} />
 }
 
 function BoundingBox() {
     const {
         world: {
-            rawWorld: {
-                mapSize: [boxX, boxY, boxZ],
-            },
+            mapSize: [boxX, boxY, boxZ],
         },
     } = useWorld()
 
@@ -235,40 +409,40 @@ function BoundingBox() {
     return <Line points={f1} color={'hotpink'} lineWidth={3} />
 }
 
-export function World() {
+const World = memo(() => {
     return (
         <>
             <BoundingBox />
             <Snakes />
             <Oranges />
             <Enemies />
-            <Walls />
+            <WallsRenderer />
         </>
     )
-}
+})
+World.displayName = 'World'
 
 function SnakeScene() {
-    const {
-        world: { rawWorld },
-        next,
-    } = useWorld()
+    const { world } = useWorld()
+    const { next } = useWorldCursor()
+
+    const { mapSize } = world
     const { config, insertConfig } = useConfig()
     const cc = useCameraControls()
-    const mapSize = rawWorld.mapSize
 
     if (config.cameraControls !== cc) {
         insertConfig({ cameraControls: cc ?? undefined })
     }
 
     if (!config.selectedSnakeId) {
-        const snake = rawWorld.snakes.find((snake) => snake.status === 'alive')
+        const snake = world.snakes.find((snake) => snake.status === 'alive')
         if (snake) {
             insertConfig({ selectedSnakeId: snake.id })
         }
     }
 
     if (cc && config.followSnake && config.selectedSnakeId) {
-        const snake = rawWorld.snakes.find(
+        const snake = world.snakes.find(
             (snake) => snake.id === config.selectedSnakeId,
         )
 
@@ -283,10 +457,10 @@ function SnakeScene() {
         }
         const timeout = setTimeout(() => {
             next()
-        }, rawWorld.tickRemainMs / 10)
+        }, world.tickRemainMs)
 
         return () => clearTimeout(timeout)
-    }, [config.playback, rawWorld, next])
+    }, [config.playback, world, next])
 
     return (
         <>
@@ -304,11 +478,12 @@ function SnakeScene() {
                 intensity={Math.PI}
             />
             <World />
-            <Sky
+            <Environment preset="sunset" />
+            {/* <Sky
                 sunPosition={new Vector3(...mapSize.map((v) => v * 2))}
                 turbidity={0.1}
                 rayleigh={0.001}
-            />
+            /> */}
         </>
     )
 }

@@ -3,7 +3,7 @@
 import { ConfigProvider } from './config'
 import { Scene } from './scene'
 import { Sidebar } from './sidebar'
-import { WorldProvider } from './ui/world'
+import { WorldProvider } from './world'
 
 export function Home() {
     return (
