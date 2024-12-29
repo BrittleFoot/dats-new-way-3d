@@ -65,14 +65,14 @@ const SnapshotIndicator = memo(
 )
 SnapshotIndicator.displayName = 'SnapshotIndicator'
 
-export function StreamWorld({ name }: { name: string }) {
+export function useReplayStream(name: string, options?: { rate: number }) {
     const { lastJsonMessage, sendJsonMessage } = useWebSocket<StreamMessage>(
         WEBSOCKET_URL,
         {
             share: true,
             queryParams: {
                 name,
-                rate: 1,
+                ...options,
             },
         },
     )
@@ -82,26 +82,9 @@ export function StreamWorld({ name }: { name: string }) {
     const [latestProcessed, setLatestProcessed] =
         useState<StreamMessage | null>(null)
 
+    // early render abort if already processed
     const alreadyProcessed = latestProcessed === lastJsonMessage
 
-    if (!alreadyProcessed && lastJsonMessage?.type === 'replay') {
-        const snapshot = lastJsonMessage
-
-        setSnapshots((prev) => {
-            const newSnapshots = [...prev]
-            snapshot.data.forEach((snap) => {
-                const old = prev[snap.turn]
-                const sameTurn = old?.turn === snap.turn
-                if (!sameTurn || (sameTurn && old.id < snap.id)) {
-                    newSnapshots[snap.turn] = snap // Update only if there's a change
-                }
-            })
-            return newSnapshots
-        })
-        setLatestProcessed(lastJsonMessage)
-    }
-
-    // todo summary outside of replay
     if (!alreadyProcessed && lastJsonMessage?.type === 'summary') {
         const summary = lastJsonMessage
         setSummary(summary.replays)
@@ -118,13 +101,38 @@ export function StreamWorld({ name }: { name: string }) {
         setLatestProcessed(lastJsonMessage)
     }
 
-    const movePointer = useCallback(
+    if (!alreadyProcessed && lastJsonMessage?.type === 'replay') {
+        const snapshot = lastJsonMessage
+
+        setSnapshots((prev) => {
+            const newSnapshots = [...prev]
+            snapshot.data.forEach((snap) => {
+                const old = prev[snap.turn]
+                const sameTurn = old?.turn === snap.turn
+
+                // Update only if there's a change
+                if (!sameTurn || (sameTurn && old.id < snap.id)) {
+                    newSnapshots[snap.turn] = snap
+                }
+            })
+            return newSnapshots
+        })
+        setLatestProcessed(lastJsonMessage)
+    }
+
+    const seek = useCallback(
         (turn: number) => {
             console.log('👀 seek', turn)
             sendJsonMessage({ type: 'seek', turn })
         },
         [sendJsonMessage],
     )
+
+    return { snapshots, summary, seek }
+}
+
+export function StreamWorld({ name }: { name: string }) {
+    const { snapshots, summary, seek } = useReplayStream(name)
 
     return (
         <div className="h-full grid grid-rows-[auto,1fr] gap-4 p-4">
@@ -161,7 +169,7 @@ export function StreamWorld({ name }: { name: string }) {
                             key={snapshot?.turn ?? index}
                             turn={snapshot?.turn ?? index}
                             snapshot={snapshot}
-                            onClickOnEmpty={movePointer}
+                            onClickOnEmpty={seek}
                         />
                     ))}
                 </CardContent>
