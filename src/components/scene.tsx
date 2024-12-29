@@ -28,16 +28,6 @@ import { useConfig } from './config'
 import { KeyControlsHandler, KeyControlsProvider } from './key'
 import { useWorld, useWorldCursor } from './world'
 
-type PositionProps = {
-    x: number
-    y: number
-    z: number
-}
-
-function posHash(x: number, y: number, z: number) {
-    return x + y * 1000 + z * 1_000_000
-}
-
 function SnakeBody({
     position,
     color,
@@ -75,36 +65,6 @@ function SnakeBody({
         </animated.mesh>
     )
 }
-const EnemyBody = memo(function EnemyBody({
-    x,
-    y,
-    z,
-    color,
-    ...props
-}: PositionProps & { color: number } & ThreeElements['mesh']) {
-    const meshRef = useRef<Mesh>(null!)
-
-    return (
-        <mesh
-            {...props}
-            position={[x, y, z]}
-            ref={meshRef}
-            onClick={(e) => {
-                e.stopPropagation()
-            }}
-            onPointerOver={(e) => {
-                e.stopPropagation()
-            }}
-            onPointerOut={(e) => {
-                e.stopPropagation()
-            }}
-        >
-            <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial color={new Color(color)} />
-        </mesh>
-    )
-})
-EnemyBody.displayName = 'EnemyBody'
 
 function Oranges() {
     const {
@@ -114,7 +74,7 @@ function Oranges() {
         },
     } = useWorld()
 
-    const instancedOranges = useMemo(() => {
+    const instancedOranges = (() => {
         const geometry = new SphereGeometry(0.5, 16, 16) // Sphere geometry for oranges
         const material = new MeshStandardMaterial({ vertexColors: true }) // Enable vertex colors
         const instancedMesh = new InstancedMesh(
@@ -147,7 +107,7 @@ function Oranges() {
             new InstancedBufferAttribute(colors, 3),
         ) // Add colors
         return instancedMesh
-    }, [parsedFood])
+    })()
 
     return (
         <>
@@ -161,57 +121,7 @@ function Oranges() {
     )
 }
 
-const Wall = memo(({ x, y, z }: PositionProps) => {
-    console.log('render wall')
-    return (
-        <mesh position={[x, y, z]}>
-            <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial
-                color={new Color(0xffffff)}
-                transparent
-                opacity={0.8}
-            />
-        </mesh>
-    )
-})
-Wall.displayName = 'Wall'
-
-function Walls() {
-    const { world } = useWorld()
-
-    const walls = useMemo(() => {
-        const geometry = new BoxGeometry(1, 1, 1)
-        const material = new MeshStandardMaterial({
-            color: 0xaa6666,
-            transparent: true,
-            opacity: 0.5,
-
-            polygonOffset: true,
-            polygonOffsetFactor: 1, // Avoid z-fighting
-            polygonOffsetUnits: 1,
-        })
-        const instancedMesh = new InstancedMesh(
-            geometry,
-            material,
-            world.fences.length,
-        )
-
-        instancedMesh.frustumCulled = true
-
-        world.fences.forEach(([x, y, z], i) => {
-            const matrix = new Matrix4()
-            matrix.setPosition(x, y, z)
-            instancedMesh.setMatrixAt(i, matrix)
-        })
-
-        instancedMesh.instanceMatrix.needsUpdate = true
-        return instancedMesh
-    }, [world.fences])
-
-    return <primitive object={walls} />
-}
-
-function Walls2({ wallPoints }: { wallPoints: Point[] }) {
+function WallChunk({ wallPoints }: { wallPoints: Point[] }) {
     const walls = useMemo(() => {
         const geometry = new BoxGeometry(1, 1, 1)
         const material = new MeshStandardMaterial({
@@ -289,7 +199,7 @@ function WallsRenderer() {
     return (
         <>
             {Array.from(parsedWalls.entries()).map(([key, walls]) => (
-                <Walls2 key={key} wallPoints={walls} />
+                <WallChunk key={key} wallPoints={walls} />
             ))}
         </>
     )
@@ -303,6 +213,9 @@ function SlickSnake({ snake }: { snake: { geometry: Point[] } }) {
     return <Line points={snake.geometry} color={'green'} lineWidth={5} />
 }
 
+/**
+ * Keep good'ol snakes rendered. It's less optimal, but with animation :)
+ */
 function Snakes() {
     const { world } = useWorld()
 
