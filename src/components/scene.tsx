@@ -4,8 +4,15 @@
 import { useCameraControls } from '@/lib/hooks'
 import { Point } from '@/lib/type'
 import { animated, useSpring } from '@react-spring/three'
-import { CameraControls, Environment, Line, Sparkles } from '@react-three/drei'
+import {
+    CameraControls,
+    Environment,
+    Line,
+    Sparkles,
+    Sphere,
+} from '@react-three/drei'
 import { Canvas, ThreeElements } from '@react-three/fiber'
+import { Bloom, EffectComposer } from '@react-three/postprocessing'
 import {
     memo,
     PropsWithChildren,
@@ -219,9 +226,11 @@ function SlickSnake({ snake }: { snake: { geometry: Point[] } }) {
 function Snakes() {
     const { world } = useWorld()
 
+    const aliveSnakes = world.snakes.filter((snake) => snake.status === 'alive')
+
     return (
         <>
-            {world.snakes.map((snake) => (
+            {aliveSnakes.map((snake) => (
                 <Each key={snake.id}>
                     <SlickSnake snake={snake} />
                     <SnakeBody
@@ -244,7 +253,7 @@ function Snakes() {
 function Enemies() {
     const { world } = useWorld()
 
-    const instancedEnemies = useMemo(() => {
+    const instancedEnemies = (() => {
         const totalInstances = world.enemies.reduce(
             (count, { geometry }) => count + geometry.length,
             0,
@@ -282,7 +291,7 @@ function Enemies() {
             new InstancedBufferAttribute(colors, 3),
         ) // Set colors
         return instancedMesh
-    }, [world.enemies])
+    })()
 
     return <primitive object={instancedEnemies} />
 }
@@ -293,6 +302,17 @@ function BoundingBox() {
             mapSize: [boxX, boxY, boxZ],
         },
     } = useWorld()
+
+    const vertices = [
+        [0, 0, 0],
+        [boxX, 0, 0],
+        [boxX, boxY, 0],
+        [0, boxY, 0],
+        [0, 0, boxZ],
+        [boxX, 0, boxZ],
+        [boxX, boxY, boxZ],
+        [0, boxY, boxZ],
+    ]
 
     const f1 = [
         [0, 0, 0],
@@ -319,7 +339,16 @@ function BoundingBox() {
         [0, 0, boxZ],
     ] as Point[]
 
-    return <Line points={f1} color={'hotpink'} lineWidth={3} />
+    return (
+        <Line points={f1} lineWidth={3}>
+            <lineBasicMaterial
+                attach="material"
+                color={'hotpink'}
+                transparent
+                opacity={0.1}
+            />
+        </Line>
+    )
 }
 
 const World = memo(() => {
@@ -339,7 +368,9 @@ function SnakeScene() {
     const { world } = useWorld()
     const { next } = useWorldCursor()
 
-    const { mapSize } = world
+    const {
+        mapSize: [mX, mY, mZ],
+    } = world
     const { config, insertConfig } = useConfig()
     const cc = useCameraControls()
 
@@ -370,26 +401,44 @@ function SnakeScene() {
         }
         const timeout = setTimeout(() => {
             next()
-        }, world.tickRemainMs)
+        }, 100)
 
         return () => clearTimeout(timeout)
     }, [config.playback, world, next])
 
+    const aliveSnakes = world.snakes.filter((snake) => snake.status === 'alive')
+
     return (
         <>
-            <ambientLight intensity={Math.PI / 2} />
-            <spotLight
-                position={[10, 10, 10]}
-                angle={0.15}
-                penumbra={1}
-                decay={0}
-                intensity={Math.PI}
-            />
+            <ambientLight intensity={0} />
+            <Sphere position={[0, 0, 0]} args={[2, 16, 16]}>
+                <meshStandardMaterial color="white" />
+            </Sphere>
+
+            <Sphere position={[0, mY, 0]} args={[2, 16, 16]}>
+                <meshStandardMaterial color="white" />
+            </Sphere>
+
             <pointLight
-                position={[-10, -10, -10]}
+                position={[mX / 2, mY / 2, -mZ / 4]}
                 decay={0}
-                intensity={Math.PI}
+                intensity={Math.PI * 2}
             />
+
+            <pointLight
+                position={[mX / 2, mY / 2, mZ * 2]}
+                decay={0}
+                intensity={Math.PI * 1}
+            />
+            {aliveSnakes.map(({ id, geometry: [head] }) => (
+                <pointLight
+                    key={id}
+                    position={head}
+                    decay={0.5}
+                    intensity={10 * Math.PI}
+                />
+            ))}
+
             <World />
             <Environment preset="sunset" />
             {/* <Sky
@@ -397,6 +446,10 @@ function SnakeScene() {
                 turbidity={0.1}
                 rayleigh={0.001}
             /> */}
+
+            <EffectComposer>
+                <Bloom luminanceThreshold={0.5} intensity={0.1} />
+            </EffectComposer>
         </>
     )
 }
@@ -406,6 +459,7 @@ export function Scene() {
         <KeyControlsProvider>
             <Canvas shadows>
                 <SnakeScene />
+
                 <CameraControls makeDefault />
                 <KeyControlsHandler />
             </Canvas>

@@ -65,7 +65,12 @@ const SnapshotIndicator = memo(
 )
 SnapshotIndicator.displayName = 'SnapshotIndicator'
 
-export function useReplayStream(name: string, options?: { rate: number }) {
+export type ReplayStreamOptions = {
+    rate?: number
+    turn?: number
+}
+
+export function useReplayStream(name: string, options?: ReplayStreamOptions) {
     const { lastJsonMessage, sendJsonMessage } = useWebSocket<StreamMessage>(
         WEBSOCKET_URL,
         {

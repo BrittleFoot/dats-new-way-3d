@@ -26,11 +26,13 @@ const WorldContext = createContext<WorldContextType>(null!)
 const WorldCursor = createContext<WorldCursorType>(null!)
 
 export const WorldProvider = ({ children }: { children: ReactNode }) => {
+    const startTurn = 500
     const { snapshots, seek } = useReplayStream('snake3d-final-5-buft', {
-        rate: 1 / 3,
+        rate: 1 / 8,
+        turn: startTurn,
     })
 
-    const [cursor, _setCursor] = useState(0)
+    const [cursor, _setCursor] = useState(startTurn)
     const [latestWorld, setLatestWorld] =
         useState<GameStateImproved>(BETTER_WORLD_ZERO)
 
@@ -42,7 +44,7 @@ export const WorldProvider = ({ children }: { children: ReactNode }) => {
         [snapshots.length],
     )
 
-    const world = snapshots[cursor]?.data ?? BETTER_WORLD_ZERO
+    const world = snapshots[cursor]?.data ?? latestWorld ?? BETTER_WORLD_ZERO
 
     if (latestWorld !== world) {
         setLatestWorld(world)
