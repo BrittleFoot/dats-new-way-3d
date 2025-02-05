@@ -30,6 +30,7 @@ export const WorldProvider = ({ children }: { children: ReactNode }) => {
     const { snapshots, seek } = useReplayStream('snake3d-final-5-buft', {
         rate: 1 / 8,
         turn: startTurn,
+        combo: 2,
     })
 
     const [cursor, _setCursor] = useState(startTurn)

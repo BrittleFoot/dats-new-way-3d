@@ -212,6 +212,33 @@ function WallsRenderer() {
     )
 }
 
+function Wall({ position }: { position: Point }) {
+    return (
+        <mesh position={position}>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial
+                color={new Color(0xffffff)}
+                transparent
+                opacity={0.8}
+            />
+        </mesh>
+    )
+}
+
+function Walls() {
+    const {
+        world: { fences },
+    } = useWorld()
+
+    return (
+        <Each>
+            {fences.map((position) => (
+                <Wall key={position.join('-')} position={position} />
+            ))}
+        </Each>
+    )
+}
+
 function Each({ children }: PropsWithChildren) {
     return <>{children}</>
 }
@@ -359,6 +386,7 @@ const World = memo(() => {
             <Oranges />
             <Enemies />
             <WallsRenderer />
+            {/* <Walls /> */}
         </>
     )
 })

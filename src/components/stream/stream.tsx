@@ -68,6 +68,7 @@ SnapshotIndicator.displayName = 'SnapshotIndicator'
 export type ReplayStreamOptions = {
     rate?: number
     turn?: number
+    combo?: number
 }
 
 export function useReplayStream(name: string, options?: ReplayStreamOptions) {
