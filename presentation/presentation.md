@@ -139,6 +139,10 @@ http://localhost:3000/stream
 THREE.js
 React-Three-Fiber
 
+- Проблема оптимизации 3д
+
+SUPRT FAST RENDER!
+
 ---
 
 - Во время реалтайма - напрямую в вебсокет?
